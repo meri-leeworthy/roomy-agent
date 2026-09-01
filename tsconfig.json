@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "noEmit": false,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["es2024"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "types": ["node"],
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/**/*", "bin/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

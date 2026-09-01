@@ -1,0 +1,27 @@
+{
+  "name": "@roomy/agent-bridge",
+  "version": "0.1.0",
+  "license": "MPL-2.0",
+  "type": "module",
+  "description": "Roomy → agent bridge: emit roomy mention events as NDJSON over stdout",
+  "bin": {
+    "roomy-bridge": "bin/roomy-bridge.ts"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "tsx bin/roomy-bridge.ts"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.14.22",
+    "@roomy-space/sdk": "^0.4.0",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": "^22.15.0"
+  }
+}
