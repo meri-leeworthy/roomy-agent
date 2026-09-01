@@ -1,5 +1,5 @@
 [Unit]
-Description=Roomy -> agent bridge (emit side)
+Description=Roomy -> omp agent bridge (Chanterelle) — full pipeline
 After=network-online.target
 Wants=network-online.target
 
@@ -7,11 +7,11 @@ Wants=network-online.target
 Type=simple
 User=exedev
 WorkingDirectory=/home/exedev/roomy-agent
-ExecStart=/home/exedev/roomy-agent/run-omp-bridge.sh
+ExecStart=/home/exedev/roomy-agent/run-agent.sh
 Restart=always
 RestartSec=5
-# The runner script sources OLLAMA_CLOUD_API_KEY from ~/.omp/agent/ollama-cloud.env
-Environment=OMP_SYSTEM_PROMPT_FILE=/home/exedev/.omp/workflow-context.md
+# run-agent.sh sources OLLAMA_CLOUD_API_KEY from ~/.omp/agent/ollama-cloud.env
+Environment=PI_CODING_AGENT_DIR=/home/exedev/.omp/agent
 
 [Install]
 WantedBy=multi-user.target
