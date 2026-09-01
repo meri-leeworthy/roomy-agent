@@ -2,6 +2,7 @@
 # Roomy -> omp agent bridge (Chanterelle) — full pipeline.
 # roomy-bridge (emit only: WS + mention detection -> NDJSON) | roomy-cli respond (responder).
 set -euo pipefail
+export NODE_OPTIONS=--dns-result-order=ipv4first
 export PATH=/home/exedev/node/bin:/home/exedev/.local/bin:$PATH
 cd "$(dirname "$0")"
 
