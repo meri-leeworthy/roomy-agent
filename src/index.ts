@@ -127,6 +127,19 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
       return res.ticket;
     },
     logger: (m) => log(m),
+    // If the appserver stays unreachable / wedges (e.g. a stale auth token
+    // makes every ticket fetch 404 while the process spins in a reconnect
+    // loop), give up after this many consecutive failures and exit so the
+    // systemd supervisor restarts this process fresh — clearing the wedged
+    // in-memory state. Without this it would retry forever, silently.
+    maxReconnectAttempts: 25,
+    onGiveUp: (info) => {
+      log(
+        `Giving up after ${info.attempt} consecutive reconnect failures (unreachable appserver); ` +
+          `exiting for systemd restart`,
+      );
+      process.exit(1);
+    },
   });
 
   conn.onFrame((frame) => {
