@@ -37,9 +37,11 @@ export interface BridgeOptions {
  * bodies further than that.
  */
 export interface MentionEvent {
-  /** Event kind — always "mention" for now; future event kinds (e.g. edits)
-   *  will be distinguishable by this field. */
-  kind: "mention";
+  /** How this event reached the agent: "mention" = the message carried a
+   *  #didMention facet / @-text for the agent; "reply" = the message is a
+   *  depth-1 reply to a message the agent authored (post-Stage-1 appserver),
+   *  and continuation semantics apply. */
+  kind: "mention" | "reply";
   spaceId: string;
   roomId: string;
   /** The message that mentioned the agent. */
@@ -96,7 +98,12 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
   // message arrives on both), pruning entries older than 10 minutes.
   const seen = new Map<string, number>();
 
-  const processMessage = (msg: IncomingMessage, roomId: string, spaceId: string) => {
+  const processMessage = (
+    msg: IncomingMessage,
+    roomId: string,
+    spaceId: string,
+    kind: "mention" | "reply",
+  ) => {
     if (!msg.id) return;
     const now = Date.now();
     for (const [k, v] of seen) if (now - v > 600_000) seen.delete(k);
@@ -105,8 +112,11 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
     if (msg.authorDid === identity.agentDid && !opts.includeSelf) return;
 
     const mentioned = isMentioned(msg, identity);
+    // A stage-1 `kind: 'reply'` op is the authoritative continuation signal:
+    // a plain reply to the agent's message triggers without any mention text.
+    const emitsReply = kind === "reply";
     const mentionOnly = opts.mentionOnly ?? true;
-    if (mentionOnly && !mentioned) return;
+    if (mentionOnly && !emitsReply && !mentioned) return;
 
     if (authorized.length > 0 && !authorized.includes(msg.authorDid)) {
       log(`ignoring message from unauthorized DID ${msg.authorDid}`);
@@ -114,7 +124,7 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
     }
 
     emit({
-      kind: "mention",
+      kind: emitsReply ? "reply" : "mention",
       spaceId,
       roomId,
       message: msg,
@@ -162,7 +172,7 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
     const body = frame.body as {
       spaceId?: string;
       roomId?: string;
-      ops?: { op?: string; message?: IncomingMessage }[];
+      ops?: { op?: string; message?: IncomingMessage; kind?: "mention" | "reply" }[];
     };
     if (!body.roomId) return;
     if (t === "#messageDiff") {
@@ -170,7 +180,9 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
       if (!sId) return;
       for (const op of body.ops ?? []) {
         if (op.op !== "add" || !op.message) continue;
-        processMessage(op.message, body.roomId, sId);
+        // Room-diff fallback: no authoritative kind on these frames, so
+        // classify by isMentioned (the pre-Stage-1 behavior).
+        processMessage(op.message, body.roomId, sId, "mention");
       }
       return;
     }
@@ -186,7 +198,7 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
     }
     for (const op of body.ops ?? []) {
       if (op.op !== "add" || !op.message) continue;
-      processMessage(op.message, body.roomId, sId);
+      processMessage(op.message, body.roomId, sId, op.kind ?? "mention");
     }
   });
 

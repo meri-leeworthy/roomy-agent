@@ -9,6 +9,10 @@ export interface IncomingMessage {
   content: string;
   mimeType?: string;
   timestamp: string;
+  /** Target message id of a reply attachment, when the message is a reply
+   *  (`space.roomy.attachment.reply.v0` → reply edge). Present on wire DTOs
+   *  post-Stage-1 appserver; used for continuation threading. */
+  replyTo?: string;
 }
 
 export interface AgentIdentity {
