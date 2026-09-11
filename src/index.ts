@@ -62,11 +62,25 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
   const log = opts.log ?? ((m: string) => console.error(`[bridge] ${m}`));
   const identity = await resolveAgentIdentity(xrpc, agent);
 
+  // The downstream consumer (e.g. `roomy-cli respond`) can die at any point.
+  // Writing to its (now broken) pipe emits an async 'error' event (EPIPE) on the
+  // stdout socket; with no handler, an unhandled 'error' event crashed the whole
+  // bridge and took the roomy→omp pipeline down with it. Handle it as a clean
+  // exit signal so systemd restarts the bridge fresh instead of the pipeline
+  // dying on the EPIPE. process.exit(0) here is safe: at this point there is no
+  // consumer left to emit to, and the WebSocket sub is torn down with the proc.
+  process.stdout.on("error", (err) => {
+    log(`stdout pipe closed (${err.message}); exiting`);
+    process.exit(0);
+  });
+
   const authorized = opts.authorizedDids?.map((d) => d.trim()).filter(Boolean) ?? [];
 
   const emit = (evt: MentionEvent) => {
     // NDJSON contract: one JSON object per line, no trailing newline beyond
-    // the line terminator. Downstream consumers read line-by-line.
+    // the line terminator. Downstream consumers read line-by-line. A broken
+    // pipe is handled by the process.stdout 'error' handler installed above
+    // (which exits cleanly) rather than an unhandled EPIPE crash.
     process.stdout.write(`${JSON.stringify(evt)}\n`);
   };
 
