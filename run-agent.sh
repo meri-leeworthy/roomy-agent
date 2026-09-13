@@ -13,7 +13,7 @@ export APPSERVER_DID=did:web:api.roomy.space
 
 # omp / ollama-cloud creds + workflow context.
 export OLLAMA_CLOUD_API_KEY=$(grep OLLAMA_CLOUD_API_KEY /home/exedev/.omp/agent/ollama-cloud.env | cut -d= -f2-)
-export OMP_SYSTEM_PROMPT_FILE=/home/exedev/.omp/workflow-context.md
+export OMP_SYSTEM_PROMPT_FILE="${OMP_SYSTEM_PROMPT_FILE:-/home/exedev/.omp/workflow-context.md}"
 
 # Only these DIDs may trigger prompts. Meri + coordinator (Chanterelle).
 export OMP_BRIDGE_AUTHORIZED_DIDS="${OMP_BRIDGE_AUTHORIZED_DIDS:-did:plc:mmyj7mk7kh3jqhw6zs4prbuk}"
