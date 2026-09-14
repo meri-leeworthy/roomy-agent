@@ -21,7 +21,14 @@ export OMP_BRIDGE_AUTHORIZED_DIDS="${OMP_BRIDGE_AUTHORIZED_DIDS:-did:plc:mmyj7mk
 SPACE=did:plc:drzgt2m6lmcel62gfbzjeap3
 
 # Note: `set -o pipefail` (above) makes the pipeline exit if EITHER side dies.
-exec npx tsx bin/roomy-bridge.ts --space "$SPACE" --duration 0 \
+#
+# --include-self lets the agent trigger itself on a #didMention facet of its own
+# DID — the scheduled self-check posts such a mention from cron. The bridge's
+# isTrigger guard triggers on a self-authored message ONLY when it carries that
+# facet, so the agent's own reports (which mention its name in plain text) can
+# never start another session.
+exec npx tsx bin/roomy-bridge.ts --space "$SPACE" --duration 0 --include-self \
   | npx tsx /home/exedev/roomy/packages/cli/src/cli.ts respond \
       --cwd /home/exedev/roomy \
+      --include-self \
       --system-prompt-file "$OMP_SYSTEM_PROMPT_FILE"
