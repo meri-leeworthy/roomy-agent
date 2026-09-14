@@ -1,5 +1,5 @@
 import { sync, transport } from "@roomy-space/sdk";
-import { isMentioned, type AgentIdentity, type IncomingMessage } from "./messages.js";
+import { isTrigger, type AgentIdentity, type IncomingMessage } from "./messages.js";
 
 const { SyncConnection } = sync;
 type DirectXrpcClient = InstanceType<typeof transport.DirectXrpcClient>;
@@ -24,7 +24,10 @@ export interface BridgeOptions {
   authorizedDids?: string[];
   /** How long to keep listening (ms). 0 = forever. */
   durationMs?: number;
-  /** Also emit the agent's own messages (testing). Default false. */
+  /** Also emit the agent's own messages. Enables the scheduled self-prompt
+   *  (cron posts a facet self-mention). Self-authored messages trigger only on
+   *  an explicit #didMention facet — see isTrigger — so the agent's own reports
+   *  cannot recurse. Default false. */
   includeSelf?: boolean;
   /** Logger; defaults to console.error. */
   log?: (msg: string) => void;
@@ -109,16 +112,25 @@ export async function listen(auth: BridgeAuth, opts: BridgeOptions): Promise<voi
     for (const [k, v] of seen) if (now - v > 600_000) seen.delete(k);
     if (seen.has(msg.id)) return;
     seen.set(msg.id, now);
-    if (msg.authorDid === identity.agentDid && !opts.includeSelf) return;
+    // Self-authored messages: only an explicit #didMention facet of the agent
+    // itself triggers (see isTrigger). This is the scheduled-self-prompt path —
+    // a cron script posts a facet mention of Chanterelle, which starts a session
+    // here. Plain-text self-mentions never trigger, so the agent's own reports
+    // (which quote its name) cannot spawn further sessions.
+    const selfAuthored = msg.authorDid === identity.agentDid;
+    if (selfAuthored && !opts.includeSelf) return;
 
-    const mentioned = isMentioned(msg, identity);
+    const mentioned = isTrigger(msg, identity);
     // A stage-1 `kind: 'reply'` op is the authoritative continuation signal:
     // a plain reply to the agent's message triggers without any mention text.
-    const emitsReply = kind === "reply";
+    // Replies the agent makes itself are never continuations of its own session.
+    const emitsReply = kind === "reply" && !selfAuthored;
     const mentionOnly = opts.mentionOnly ?? true;
     if (mentionOnly && !emitsReply && !mentioned) return;
 
-    if (authorized.length > 0 && !authorized.includes(msg.authorDid)) {
+    // The allow-list gates who may prompt the agent; the agent prompting itself
+    // (scheduled self-check) is implicitly authorized when --include-self is on.
+    if (!selfAuthored && authorized.length > 0 && !authorized.includes(msg.authorDid)) {
       log(`ignoring message from unauthorized DID ${msg.authorDid}`);
       return;
     }

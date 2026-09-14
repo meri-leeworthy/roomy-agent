@@ -71,6 +71,28 @@ export function isMentioned(msg: IncomingMessage, identity: AgentIdentity): bool
   });
 }
 
+/**
+ * Whether a message should TRIGGER the agent, accounting for self-authorship.
+ *
+ * Self-authored messages trigger ONLY on a DID-authoritative facet mention of
+ * the agent (`isMentionedByFacet`). Plain-text `@Name` matching is deliberately
+ * NOT sufficient for the agent's own messages: agent output (reports, traces,
+ * prompts) quotes its own name constantly, and a self-trigger on that text
+ * would make every report spawn another session — an unbounded reply loop that
+ * also never terminates in the room.
+ *
+ * This is what makes a scheduled self-prompt possible: a cron script posts an
+ * explicit `#didMention` facet for the agent (see `buildMentionBlocks` in the
+ * CLI), which is the one unambiguous, intentional self-trigger. Enabling
+ * self-authored delivery therefore requires `--include-self` on both the bridge
+ * (to emit the event) and the responder (to enqueue it) — but NOT a relaxation
+ * of this guard.
+ */
+export function isTrigger(msg: IncomingMessage, identity: AgentIdentity): boolean {
+  if (msg.authorDid === identity.agentDid) return isMentionedByFacet(msg, identity);
+  return isMentioned(msg, identity);
+}
+
 /** Extract plain text from a message regardless of mime type. */
 export function plaintext(msg: IncomingMessage): string {
   const mime = msg.mimeType ?? "";

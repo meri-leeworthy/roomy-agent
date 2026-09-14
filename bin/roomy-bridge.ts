@@ -12,7 +12,7 @@ program
   .option("--room <id>", "Room ID (defaults to all rooms in the space)")
   .option("--no-mention-only", "Emit every message, not just mentions")
   .option("--duration <ms>", "Stop after this many ms (0 = run forever)", "0")
-  .option("--include-self", "Also emit the agent's own messages (testing)")
+  .option("--include-self", "Also emit the agent's own messages (scheduled self-prompt; triggers only on an explicit facet self-mention)")
   .option("--authorized-dids <dids>", "Comma-separated DIDs allowed to trigger responses (default: $OMP_BRIDGE_AUTHORIZED_DIDS; empty = anyone mentioned)")
   .action(async (options: {
     space?: string;
