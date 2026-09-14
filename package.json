@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "start": "tsx bin/roomy-bridge.ts"
+    "start": "tsx bin/roomy-bridge.ts",
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.14.22",

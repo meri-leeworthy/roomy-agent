@@ -21,6 +21,28 @@ export interface AgentIdentity {
   agentName: string;
 }
 
+/** Fenced code blocks (``` / ~~~), including a fence left open to end of text. */
+const FENCED_CODE = /(?:```|~~~)[\s\S]*?(?:(?:```|~~~)|$)/g;
+/** Inline code spans — single backticks, never spanning a newline. */
+const INLINE_CODE = /`[^`\n]*`/g;
+
+/**
+ * Whether the message carries a DID-authoritative `#didMention` facet for the
+ * agent. This is the same signal the appserver routes `#mention` frames from,
+ * so it never depends on message text — it is the only signal that means the
+ * agent was *addressed*, as opposed to its name merely appearing.
+ */
+export function isMentionedByFacet(msg: IncomingMessage, identity: AgentIdentity): boolean {
+  const mime = msg.mimeType ?? "";
+  if (mime !== "application/vnd.roomy.richtext+json") return false;
+  try {
+    const blocks = deserializeBody(mime, decodeContentBytes(msg.content));
+    return Array.isArray(blocks) && extractMentionDids(blocks).includes(identity.agentDid);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Decide whether a message mentions the agent. The DID is authoritative (a
  * `#didMention` facet is a stable, unambiguous match); plain-text matching is a
@@ -28,24 +50,17 @@ export interface AgentIdentity {
  */
 export function isMentioned(msg: IncomingMessage, identity: AgentIdentity): boolean {
   const { agentDid, agentHandle, agentName } = identity;
-  const mime = msg.mimeType ?? "";
 
-  if (mime === "application/vnd.roomy.richtext+json") {
-    try {
-      const blocks = deserializeBody(mime, decodeContentBytes(msg.content));
-      if (Array.isArray(blocks)) {
-        const dids = extractMentionDids(blocks);
-        if (dids.includes(agentDid)) return true;
-      }
-    } catch {
-      // fall through to text matching
-    }
-  }
+  if (isMentionedByFacet(msg, identity)) return true;
 
   // Strict fallback: only an explicit @Name / @handle / @did mention counts.
   // A bare substring of the agent's name (e.g. "Chanterelle" appearing in a
   // report, thinking trace, or forwarded message) must NOT trigger the agent.
-  const text = msg.content ?? "";
+  // Code is blanked first: reports and traces quote `@Agent` inside fenced
+  // blocks and inline spans, and a quoted name is not an address — matching it
+  // spawned spurious agent sessions that re-ran work already done. The text
+  // outside code is untouched, so a real `@Name` still triggers.
+  const text = (msg.content ?? "").replace(FENCED_CODE, " ").replace(INLINE_CODE, " ");
   const needles = [agentName, agentHandle, agentDid].filter(Boolean);
   return needles.some((n) => {
     const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
